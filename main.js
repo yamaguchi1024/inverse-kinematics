@@ -24,7 +24,21 @@ function update_position() {
 };
 
 function compute_ik(target_position) {
-    // TODO
+  let last = linkages[linkages.length-1];
+  let lasttoe = new THREE.Vector2(last.position[0] + last.length*Math.cos(last.angle), last.position[1] + last.length*Math.sin(last.angle));
+  let target = new THREE.Vector2(target_position[0], target_position[1]);
+  for (let i = linkages.length - 1; i >= 0; i--) {
+    let cur = new THREE.Vector2(linkages[i].position[0], linkages[i].position[1]);
+
+    let toecur = lasttoe.sub(cur);
+    let tarcur = target.sub(cur);
+
+    let toean = toecur.angle()/(Math.PI/180);
+    let taran = tarcur.angle()/(Math.PI/180);
+    linkages[i].angle += toean - taran;
+  }
+
+  update_position();
 };
 
 function draw() {
