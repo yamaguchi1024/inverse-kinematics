@@ -1,21 +1,21 @@
-var gl;
-var canvas;
-var legacygl;
-var drawutil;
-var camera;
-var linkages = [
+let gl;
+let canvas;
+let legacygl;
+let drawutil;
+let camera;
+let linkages = [
   { angle : 0, length : 0.8 },
   { angle : 0, length : 0.9 },
   { angle : 0, length : 1.5 },
   { angle : 0, length : 0.7 },
 ];
-var is_dragging = false;
+let is_dragging = false;
 
 function update_position() {
   linkages.forEach(function(linkage, index){
     linkage.position = [0, 0];
-    var angle_sum = 0;
-    for (var j = 0; j <= index; ++j) {
+    let angle_sum = 0;
+    for (let j = 0; j <= index; ++j) {
       angle_sum += linkages[j].angle;
       linkage.position[0] += linkages[j].length * Math.cos(angle_sum * Math.PI / 180);
       linkage.position[1] += linkages[j].length * Math.sin(angle_sum * Math.PI / 180);
@@ -44,17 +44,78 @@ function ccd(target_position) {
     linkages[i+1].angle += taran - toean;
     update_position();
   }
-}
+};
+
+function pik(target_position) {
+  let target = new THREE.Vector2(target_position[0], target_position[1]);
+  let root = new THREE.Vector2(0, 0);
+  let particles = [];
+  linkages.forEach(function(linkage, index){
+    particles.push(new THREE.Vector2(linkage.position[0], linkage.position[1]));
+  });
+
+  for (let it = 0; it < 1000; it++) {
+    let dv = target.clone();
+    dv.sub(particles[particles.length - 1]);
+    particles[particles.length - 1].add(dv);
+
+    for (let pid = particles.length -2; pid >= 0; pid--) {
+      dv = particles[pid + 1].clone();
+      dv.sub(particles[pid]);
+      dv.multiplyScalar(0.5 - linkages[pid].length/dv.length() * 0.5);
+      particles[pid].add(dv);
+      particles[pid + 1].sub(dv);
+    }
+
+    dv = root.clone();
+    dv.sub(particles[0]);
+    dv.multiplyScalar(1.0 - linkages[0].length / dv.length());
+    particles[0].add(dv);
+  }
+
+  /*
+  for (let i = 0; i < linkages.length; i++) {
+    linkages[i].position[0] = particles[i].x;
+    linkages[i].position[1] = particles[i].y;
+    THREE.Vector2.Angle(particles[i], particles[i+1]);
+  }
+  */
+  let vecs = [];
+  for (let i = 0; i < linkages.length; i++) {
+    let cur = particles[i].clone();
+    if (i == 0) {
+      let prev = root.clone();
+      let vec = cur.sub(prev);
+      let angle = vec.angle()*(180/Math.PI);
+      vecs.push(angle);
+      linkages[i].angle = angle;
+    } else {
+      let prev = particles[i-1];
+      let vec = cur.sub(prev);
+      let shita = vecs[i-1];
+      let fai = vec.angle()*(180/Math.PI);
+      vecs.push(fai);
+      let angle;
+      if (fai > shita)
+        angle = fai - shita;
+      else
+        angle = fai + (360 - shita);
+      linkages[i].angle = angle;
+    }
+    update_position();
+  }
+};
 
 function compute_ik(target_position) {
-  ccd(target_position);
+  // ccd(target_position);
+  pik(target_position);
 };
 
 function draw() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   // projection & camera position
   mat4.perspective(legacygl.uniforms.projection.value, Math.PI / 6, canvas.aspect_ratio(), 0.1, 1000);
-  var modelview = legacygl.uniforms.modelview;
+  let modelview = legacygl.uniforms.modelview;
   camera.lookAt(modelview.value);
 
   // xy grid
@@ -63,7 +124,7 @@ function draw() {
   drawutil.xygrid(100);
 
   // linkages
-  var selected = Number(document.getElementById("input_selected").value);
+  let selected = Number(document.getElementById("input_selected").value);
   legacygl.begin(gl.LINES);
   linkages.forEach(function(linkage, index){
     if (index == selected)
@@ -96,7 +157,7 @@ function init() {
   gl = canvas.getContext("experimental-webgl");
   if (!gl)
     alert("Could not initialise WebGL, sorry :-(");
-  var vertex_shader_src = "\
+  let vertex_shader_src = "\
   attribute vec3 a_vertex;\
   attribute vec3 a_color;\
   varying vec3 v_color;\
@@ -108,7 +169,7 @@ function init() {
     gl_PointSize = 5.0;\
   }\
   ";
-  var fragment_shader_src = "\
+  let fragment_shader_src = "\
   precision mediump float;\
   varying vec3 v_color;\
   void main(void) {\
@@ -129,7 +190,7 @@ function init() {
   update_position();
   // event handlers
   canvas.onmousedown = function(evt) {
-    var mouse_win = this.get_mousepos(evt);
+    let mouse_win = this.get_mousepos(evt);
     if (evt.altKey) {
       camera.start_moving(mouse_win, evt.shiftKey ? "zoom" : "pan");
       return;
@@ -138,28 +199,28 @@ function init() {
       is_dragging = true;
   };
   canvas.onmousemove = function(evt) {
-    var mouse_win = this.get_mousepos(evt);
+    let mouse_win = this.get_mousepos(evt);
     if (camera.is_moving()) {
       camera.move(mouse_win);
       draw();
       return;
     }
     if (!is_dragging) return;
-    var viewport = [0, 0, canvas.width, canvas.height];
+    let viewport = [0, 0, canvas.width, canvas.height];
     mouse_win.push(1);
-    var mouse_obj = glu.unproject(mouse_win, 
+    let mouse_obj = glu.unproject(mouse_win, 
       legacygl.uniforms.modelview.value,
       legacygl.uniforms.projection.value,
       viewport);
     // just reuse the same code as the 3D case
-    var plane_origin = [0, 0, 0];
-    var plane_normal = [0, 0, 1];
-    var eye_to_mouse = numeric.sub(mouse_obj, camera.eye);
-    var eye_to_origin = numeric.sub(plane_origin, camera.eye);
-    var s1 = numeric.dot(eye_to_mouse, plane_normal);
-    var s2 = numeric.dot(eye_to_origin, plane_normal);
-    var eye_to_intersection = numeric.mul(s2 / s1, eye_to_mouse);
-    var target_position = numeric.add(camera.eye, eye_to_intersection);
+    let plane_origin = [0, 0, 0];
+    let plane_normal = [0, 0, 1];
+    let eye_to_mouse = numeric.sub(mouse_obj, camera.eye);
+    let eye_to_origin = numeric.sub(plane_origin, camera.eye);
+    let s1 = numeric.dot(eye_to_mouse, plane_normal);
+    let s2 = numeric.dot(eye_to_origin, plane_normal);
+    let eye_to_intersection = numeric.mul(s2 / s1, eye_to_mouse);
+    let target_position = numeric.add(camera.eye, eye_to_intersection);
     compute_ik(target_position);
     draw();
     document.getElementById("input_selected").onchange();
@@ -177,7 +238,7 @@ function init() {
     draw();
   };
   document.getElementById("input_angle").onchange = function(){
-    var selected = document.getElementById("input_selected").value;
+    let selected = document.getElementById("input_selected").value;
     linkages[selected].angle = Number(document.getElementById("input_angle").value);
     update_position();
     draw();
