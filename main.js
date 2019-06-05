@@ -59,12 +59,12 @@ function pik(target_position) {
     dv.sub(particles[particles.length - 1]);
     particles[particles.length - 1].add(dv);
 
-    for (let pid = particles.length -2; pid >= 0; pid--) {
-      dv = particles[pid + 1].clone();
+    for (let pid = particles.length - 1; pid > 0; pid--) {
+      dv = particles[pid - 1].clone();
       dv.sub(particles[pid]);
       dv.multiplyScalar(0.5 - linkages[pid].length/dv.length() * 0.5);
       particles[pid].add(dv);
-      particles[pid + 1].sub(dv);
+      particles[pid - 1].sub(dv);
     }
 
     dv = root.clone();
@@ -73,28 +73,21 @@ function pik(target_position) {
     particles[0].add(dv);
   }
 
-  /*
-  for (let i = 0; i < linkages.length; i++) {
-    linkages[i].position[0] = particles[i].x;
-    linkages[i].position[1] = particles[i].y;
-    THREE.Vector2.Angle(particles[i], particles[i+1]);
-  }
-  */
-  let vecs = [];
+  let angles = [];
   for (let i = 0; i < linkages.length; i++) {
     let cur = particles[i].clone();
     if (i == 0) {
       let prev = root.clone();
       let vec = cur.sub(prev);
       let angle = vec.angle()*(180/Math.PI);
-      vecs.push(angle);
+      angles.push(angle);
       linkages[i].angle = angle;
     } else {
       let prev = particles[i-1];
       let vec = cur.sub(prev);
-      let shita = vecs[i-1];
+      let shita = angles[i-1];
       let fai = vec.angle()*(180/Math.PI);
-      vecs.push(fai);
+      angles.push(fai);
       let angle;
       if (fai > shita)
         angle = fai - shita;
