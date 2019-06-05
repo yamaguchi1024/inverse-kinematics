@@ -100,8 +100,10 @@ function pik(target_position) {
 };
 
 function compute_ik(target_position) {
-  // ccd(target_position);
-  pik(target_position);
+  if (document.getElementById("ccd").checked)
+     ccd(target_position);
+  else if (document.getElementById("pik").checked)
+    pik(target_position);
 };
 
 function draw() {
@@ -188,8 +190,8 @@ function init() {
       camera.start_moving(mouse_win, evt.shiftKey ? "zoom" : "pan");
       return;
     }
-    if (document.getElementById("input_ikmode").checked)
-      is_dragging = true;
+
+    is_dragging = true;
   };
   canvas.onmousemove = function(evt) {
     let mouse_win = this.get_mousepos(evt);
