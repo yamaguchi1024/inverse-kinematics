@@ -4,12 +4,26 @@ let legacygl;
 let drawutil;
 let camera;
 let linkages = [
-  { angle : 0, length : 0.8 },
-  { angle : 0, length : 0.9 },
-  { angle : 0, length : 1.5 },
-  { angle : 0, length : 0.7 },
+  { angle : 2, length : 0.8 },
+  { angle : 9, length : 0.9 },
+  { angle : 10, length : 1.5 },
+  { angle : 50, length : 0.7 },
 ];
 let is_dragging = false;
+
+function mouseauto() {
+  let count = 0;
+  let r = 0.2;
+  let id = setInterval(function(){
+    count++;
+
+    let t = count / 10;
+    compute_ik([r * (t - Math.sin(t)), r * 5 * (1 - Math.cos(t))]);
+    draw();
+    if (count > 200)
+      clearInterval(id);
+  }, 30);
+};
 
 function update_position() {
   linkages.forEach(function(linkage, index){
@@ -99,11 +113,78 @@ function pik(target_position) {
   }
 };
 
+function jacob(target_position) {
+  let angles = [];
+  let l = [];
+  for (let i in linkages) {
+    angles.push(linkages[i].angle/(180/Math.PI));
+    l.push(linkages[i].length);
+  }
+  let Pgoal = m4th.matrix(2, [target_position[0], target_position[1]]);
+
+  let Q = m4th.matrix(4, [
+    angles[0],
+    angles[1],
+    angles[2],
+    angles[3]
+  ]);
+
+  let Px = 0;
+  let Py = 0;
+  for(var i = 0; i < Q.rows; i++)
+  {
+    let angSum = 0;
+    for(var j = 0; j < i+1; j++)
+      angSum += Q.get(j,0);
+    Px += l[i]*Math.cos(angSum);
+    Py += l[i]*Math.sin(angSum);
+  }
+
+  let P = m4th.matrix(2,[Px,Py]);
+  let dX = Pgoal.minus(P);
+
+  let	d1x = -l[0]*Math.sin(Q.get(0,0)) - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)) - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))-l[3]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
+  let	d2x = - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)) - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))-l[3]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
+  let	d3x =  - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))-l[3]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
+  let	d4x = -l[3]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0))
+
+  let	d1y = l[0]*Math.cos(Q.get(0,0)) + l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)) + l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))+l[3]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
+  let	d2y = l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)) + l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))+l[3]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
+  let	d3y = l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))+l[3]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
+  let	d4y = l[3]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0))
+
+  let J = m4th.matrix(2, [
+    d1x, d2x, d3x, d4x,
+    d1y, d2y, d3y, d4y
+  ]);
+
+  let jInv;
+  if(J.columns > J.rows)
+    jInv = J.transp().mult(m4th.lu(J.mult(J.transp())).getInverse());
+  else if(J.columns < J.rows)
+    jInv = m4th.lu(J.transp().mult(J)).getInverse().mult(J.transp());
+  else
+    jInv = J.getInverse();
+
+  dX = Pgoal.minus(P);
+  let dQ = jInv.mult(dX);
+
+  Q = Q.add(dQ.times(.1));
+
+  for(var i = 0; i < Q.rows; i++) {
+    linkages[i].angle = Q.get(i,0)*(180/Math.PI);
+  }
+
+  update_position();
+}
+
 function compute_ik(target_position) {
   if (document.getElementById("ccd").checked)
      ccd(target_position);
   else if (document.getElementById("pik").checked)
     pik(target_position);
+  else if (document.getElementById("jacob").checked)
+    jacob(target_position);
 };
 
 function draw() {
@@ -144,6 +225,34 @@ function draw() {
     legacygl.vertex2(linkage.position);
   });
   legacygl.end();
+};
+
+function mousemove(mousepos) {
+  let mouse_win = mousepos;
+  if (camera.is_moving()) {
+    camera.move(mouse_win);
+    draw();
+    return;
+  }
+  if (!is_dragging) return;
+  let viewport = [0, 0, canvas.width, canvas.height];
+  mouse_win.push(1);
+  let mouse_obj = glu.unproject(mouse_win, 
+    legacygl.uniforms.modelview.value,
+    legacygl.uniforms.projection.value,
+    viewport);
+  // just reuse the same code as the 3D case
+  let plane_origin = [0, 0, 0];
+  let plane_normal = [0, 0, 1];
+  let eye_to_mouse = numeric.sub(mouse_obj, camera.eye);
+  let eye_to_origin = numeric.sub(plane_origin, camera.eye);
+  let s1 = numeric.dot(eye_to_mouse, plane_normal);
+  let s2 = numeric.dot(eye_to_origin, plane_normal);
+  let eye_to_intersection = numeric.mul(s2 / s1, eye_to_mouse);
+  let target_position = numeric.add(camera.eye, eye_to_intersection);
+  compute_ik(target_position);
+  draw();
+  document.getElementById("input_selected").onchange();
 };
 
 function init() {
@@ -190,35 +299,11 @@ function init() {
       camera.start_moving(mouse_win, evt.shiftKey ? "zoom" : "pan");
       return;
     }
-
     is_dragging = true;
   };
   canvas.onmousemove = function(evt) {
     let mouse_win = this.get_mousepos(evt);
-    if (camera.is_moving()) {
-      camera.move(mouse_win);
-      draw();
-      return;
-    }
-    if (!is_dragging) return;
-    let viewport = [0, 0, canvas.width, canvas.height];
-    mouse_win.push(1);
-    let mouse_obj = glu.unproject(mouse_win, 
-      legacygl.uniforms.modelview.value,
-      legacygl.uniforms.projection.value,
-      viewport);
-    // just reuse the same code as the 3D case
-    let plane_origin = [0, 0, 0];
-    let plane_normal = [0, 0, 1];
-    let eye_to_mouse = numeric.sub(mouse_obj, camera.eye);
-    let eye_to_origin = numeric.sub(plane_origin, camera.eye);
-    let s1 = numeric.dot(eye_to_mouse, plane_normal);
-    let s2 = numeric.dot(eye_to_origin, plane_normal);
-    let eye_to_intersection = numeric.mul(s2 / s1, eye_to_mouse);
-    let target_position = numeric.add(camera.eye, eye_to_intersection);
-    compute_ik(target_position);
-    draw();
-    document.getElementById("input_selected").onchange();
+    mousemove(mouse_win);
   }
   document.onmouseup = function (evt) {
     if (camera.is_moving()) {
@@ -241,4 +326,6 @@ function init() {
   // init OpenGL settings
   gl.viewport(0, 0, canvas.width, canvas.height);
   gl.clearColor(1, 1, 1, 1);
+
+  mouseauto();
 };
