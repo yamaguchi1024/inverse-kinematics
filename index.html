@@ -37,8 +37,8 @@
                   <li>Implemented three IK algorithms, Cyclic Coordinate Descent, Particle IK, and Jacobian IK.</li>
                   <ul>
                     <li>Cyclic Coordinate Descent implementation is in "ccd" function. It iterate through each joints from end to root and optimize each angle to get the end point as close as possible to the target.</li>
-                    <li>Particle IK implementation is in "pik" function. It uses the array called "particle", which corresponds to joint positions and is being optimized to become closer to target each iteration.</li>
-                    <li> Jacobian IK implementation is in "jacob" function. It uses Jacobian matrix to compute the change in rotation. It becomes "smoother" than the other approahces.</li>
+                    <li>Particle IK implementation is in "pik" function. It uses the array called "particle", which corresponds to the joint positions and is being optimized to become closer to the target position in each iteration.</li>
+                    <li> Jacobian IK implementation is in "jacob" function. It uses Jacobian matrix to compute the difference of change in rotation. From the video, you can see it becomes "smoother" than other approahces.</li>
                   </ul>
                   <li>A video of comparison of three algorithms with the same movement can be found in <a href="https://youtu.be/EfG3gVi2VtU">this link</a>.</li>
                 </ul>
