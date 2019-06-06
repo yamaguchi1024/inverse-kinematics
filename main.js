@@ -3,6 +3,7 @@ let canvas;
 let legacygl;
 let drawutil;
 let camera;
+let moving = false;
 let linkages = [
   { angle : 2, length : 0.8 },
   { angle : 9, length : 0.9 },
@@ -12,6 +13,7 @@ let linkages = [
 let is_dragging = false;
 
 function mouseauto() {
+  moving = true;
   let count = 0;
   let r = 0.2;
   let id = setInterval(function(){
@@ -20,8 +22,11 @@ function mouseauto() {
     let t = count / 10;
     compute_ik([r * (t - Math.sin(t)), r * 5 * (1 - Math.cos(t))]);
     draw();
-    if (count > 200)
+    if (count > 200) {
       clearInterval(id);
+      moving = false;
+      document.getElementById("anime").disabled = false;
+    }
   }, 30);
 };
 
@@ -60,6 +65,7 @@ function ccd(target_position) {
   }
 };
 
+// Particle IK
 function pik(target_position) {
   let target = new THREE.Vector2(target_position[0], target_position[1]);
   let root = new THREE.Vector2(0, 0);
@@ -113,6 +119,7 @@ function pik(target_position) {
   }
 };
 
+// Jacobian IK
 function jacob(target_position) {
   let angles = [];
   let l = [];
@@ -120,63 +127,35 @@ function jacob(target_position) {
     angles.push(linkages[i].angle/(180/Math.PI));
     l.push(linkages[i].length);
   }
-  let Pgoal = m4th.matrix(2, [target_position[0], target_position[1]]);
 
-  let Q = m4th.matrix(4, [
-    angles[0],
-    angles[1],
-    angles[2],
-    angles[3]
-  ]);
+  let	d1x = -l[0]*Math.sin(angles[0]) - l[1]*Math.sin(angles[0]+angles[1])
+    - l[1]*Math.sin(angles[0]+angles[1]+angles[2])-l[3]*Math.sin(angles[0]+angles[1]+angles[2]+angles[3]);
+  let	d2x = - l[1]*Math.sin(angles[0]+angles[1]) - l[1]*Math.sin(angles[0]+angles[1]+angles[2])
+    -l[3]*Math.sin(angles[0]+angles[1]+angles[2]+angles[3]);
+  let	d3x = - l[1]*Math.sin(angles[0]+angles[1]+angles[2])-l[3]*Math.sin(angles[0]+angles[1]+angles[2]+angles[3]);
+  let	d4x = -l[3]*Math.sin(angles[0]+angles[1]+angles[2]+angles[3])
 
-  let Px = 0;
-  let Py = 0;
-  for(var i = 0; i < Q.rows; i++)
-  {
-    let angSum = 0;
-    for(var j = 0; j < i+1; j++)
-      angSum += Q.get(j,0);
-    Px += l[i]*Math.cos(angSum);
-    Py += l[i]*Math.sin(angSum);
-  }
-
-  let P = m4th.matrix(2,[Px,Py]);
-  let dX = Pgoal.minus(P);
-
-  let	d1x = -l[0]*Math.sin(Q.get(0,0)) - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)) - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))-l[3]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
-  let	d2x = - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)) - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))-l[3]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
-  let	d3x =  - l[1]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))-l[3]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
-  let	d4x = -l[3]*Math.sin(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0))
-
-  let	d1y = l[0]*Math.cos(Q.get(0,0)) + l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)) + l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))+l[3]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
-  let	d2y = l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)) + l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))+l[3]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
-  let	d3y = l[1]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0))+l[3]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0));
-  let	d4y = l[3]*Math.cos(Q.get(0,0)+Q.get(1,0)+Q.get(2,0)+Q.get(3,0))
+  let	d1y = l[0]*Math.cos(angles[0]) + l[1]*Math.cos(angles[0]+angles[1]) + l[1]*Math.cos(angles[0]+angles[1]+angles[2])+l[3]*Math.cos(angles[0]+angles[1]+angles[2]+angles[3]);
+  let	d2y = l[1]*Math.cos(angles[0]+angles[1]) + l[1]*Math.cos(angles[0]+angles[1]+angles[2])+l[3]*Math.cos(angles[0]+angles[1]+angles[2]+angles[3]);
+  let	d3y = l[1]*Math.cos(angles[0]+angles[1]+angles[2])+l[3]*Math.cos(angles[0]+angles[1]+angles[2]+angles[3]);
+  let	d4y = l[3]*Math.cos(angles[0]+angles[1]+angles[2]+angles[3])
 
   let J = m4th.matrix(2, [
     d1x, d2x, d3x, d4x,
     d1y, d2y, d3y, d4y
   ]);
 
-  let jInv;
-  if(J.columns > J.rows)
-    jInv = J.transp().mult(m4th.lu(J.mult(J.transp())).getInverse());
-  else if(J.columns < J.rows)
-    jInv = m4th.lu(J.transp().mult(J)).getInverse().mult(J.transp());
-  else
-    jInv = J.getInverse();
+  let jInv = J.transp().mult(m4th.lu(J.mult(J.transp())).getInverse());
+  let target = m4th.matrix(2, [target_position[0], target_position[1]]);
+  let cur = m4th.matrix(2,[linkages[linkages.length - 1].position[0], linkages[linkages.length - 1].position[1]]);
+  let d = jInv.mult(target.minus(cur));
 
-  dX = Pgoal.minus(P);
-  let dQ = jInv.mult(dX);
-
-  Q = Q.add(dQ.times(.1));
-
-  for(var i = 0; i < Q.rows; i++) {
-    linkages[i].angle = Q.get(i,0)*(180/Math.PI);
+  for(var i = 0; i < angles.length; i++) {
+    linkages[i].angle = (angles[i] + d.times(.1).get(i,0))*(180/Math.PI);
   }
 
   update_position();
-}
+};
 
 function compute_ik(target_position) {
   if (document.getElementById("ccd").checked)
@@ -323,9 +302,13 @@ function init() {
     update_position();
     draw();
   };
+  document.getElementById("anime").onclick = function(){
+    if (!moving) {
+      mouseauto();
+      document.getElementById("anime").disabled = true;
+    }
+  }
   // init OpenGL settings
   gl.viewport(0, 0, canvas.width, canvas.height);
   gl.clearColor(1, 1, 1, 1);
-
-  mouseauto();
 };

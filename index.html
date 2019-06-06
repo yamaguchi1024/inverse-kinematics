@@ -27,9 +27,13 @@
               <ul>
                 <li>Selected Linkage: <input type="number" id="input_selected" step="1" min="0" value="0"></li>
                 <li>Selected Linkage's Angle: <input type="number" id="input_angle" step="5" value="0"></li>
-                <li><input type="radio" name="radio" id="ccd" checked>ccd</li>
-                <li><input type="radio" name="radio" id="pik">pik</li>
-                <li><input type="radio" name="radio" id="jacob">jacob</li>
+                <li>Select IK algorithm:</li>
+                <ul>
+                  <li><input type="radio" name="radio" id="ccd" checked>Cyclic Coordinate Descent</li>
+                  <li><input type="radio" name="radio" id="pik">Particle Inverse Kinetics</li>
+                  <li><input type="radio" name="radio" id="jacob">Jacobian Inverse Kinetics</li>
+                </ul>
+                <li><button type="button" id="anime">Start Animation</button></li>
                 <li>Usage:</li>
                 <ul>
                   <li>Drag: Perform IK</li>
