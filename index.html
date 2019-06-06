@@ -25,25 +25,27 @@
             </td>
             <td>
               <ul>
-                <li>Selected Linkage: <input type="number" id="input_selected" step="1" min="0" value="0"></li>
-                <li>Selected Linkage's Angle: <input type="number" id="input_angle" step="5" value="0"></li>
-                <li>Select IK algorithm:</li>
+                <li><b>Select IK algorithm:</b></li>
                 <ul>
                   <li><input type="radio" name="radio" id="ccd" checked>Cyclic Coordinate Descent</li>
                   <li><input type="radio" name="radio" id="pik">Particle Inverse Kinetics</li>
                   <li><input type="radio" name="radio" id="jacob">Jacobian Inverse Kinetics</li>
                 </ul>
-                <li><button type="button" id="anime">Start Animation</button></li>
+                <button type="button" id="anime">Start Animation</button>
+                <li><b>工夫点:</b></li>
+                <ul>
+                  <li>Implemented three IK algorithm, Cyclic Coordinate Descent, Particle IK, and Jacobian IK.</li>
+                  <li>A video of comparison of three algorithms with the same movement can be found in <a href="https://youtu.be/EfG3gVi2VtU">this link</a>.</li>
+                </ul>
+                <br><br>
+
+                <li>Selected Linkage: <input type="number" id="input_selected" step="1" min="0" value="0"></li>
+                <li>Selected Linkage's Angle: <input type="number" id="input_angle" step="5" value="0"></li>
                 <li>Usage:</li>
                 <ul>
                   <li>Drag: Perform IK</li>
                   <li>Alt+Drag: Camera Pan</li>
                   <li>Alt+Shift+drag: Camera Zoom</li>
-                </ul>
-                <li>工夫点:</li>
-                <ul>
-                  <li>Implemented three IK algorithm, Cyclic Coordinate Descent, Particle IK, and Jacobian IK.</li>
-                  <li>A video of comparison of three algorithms with the same movement can be found in <a href="https://youtu.be/EfG3gVi2VtU">this link</a>.</li>
                 </ul>
               </ul>
             </td>
